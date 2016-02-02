@@ -1,0 +1,22 @@
+- hosts: all
+  sudo: yes
+  roles:
+    - { role: selinux, selinux_state: permissive, selinux_policy: targeted }
+    - { role: base }
+  tags:
+    - setup
+
+- hosts: web
+  sudo: yes
+  roles:
+    - { role: java }
+
+- hosts: apache
+  sudo: yes
+  roles:
+    - { role: httpd }
+
+- hosts: db
+  sudo: yes
+  roles:
+    - { role: mysql }

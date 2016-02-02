@@ -1,0 +1,112 @@
+---
+- name: add mysql 5.6 yum repo
+  template:
+    src=mysql.repo.j2
+    dest=/etc/yum.repos.d/mysql.repo
+
+- name: Install python mysql for ansible
+  yum: name=MySQL-python state=present
+
+- name: Check if any version of mysql is present
+  command: mysql --version
+  register: mysqlVersion
+  ignore_errors: true
+
+- name: Uninstall MySQL if 5.6 is absent
+  yum: name={{ item }} state=absent
+  with_items:
+    - mysql-server
+    - mysql
+  when: mysqlVersion|success and mysqlVersion.stdout.find('5.6') == -1
+
+- name: Install mysql from mysql56 yum repository
+  yum: name={{ item }} state=present
+  with_items:
+    - mysql-community-common
+    - mysql-community-libs
+    - mysql-community-client
+    - mysql-community-server
+
+  when: mysqlVersion|failed or mysqlVersion.stdout.find('5.6') == -1
+
+- name: Copy mysql config
+  template:
+    src=my.cnf.j2
+    dest=/etc/my.cnf
+    mode=755
+
+- name: Stop Mysql Service
+  service: name=mysqld state=stopped
+
+- name: Start Mysql Service
+  service: name=mysqld state=started enabled=true
+
+- name: Update mysql root password
+  command: /usr/bin/mysqladmin -uroot password {{ mysql_root_password }}
+  ignore_errors: yes
+
+- name: Get matched IpTable rule
+  shell: iptables -nL --line-numbers | grep MYSQL  -m 1 | cut -c 1-2
+  register: matchedRule
+
+- name: delete matching rule if exists
+  shell: iptables -D INPUT {{ matchedRule.stdout }}
+  when: matchedRule.stdout!=""
+
+- name: Allow mysql port through firewall
+  command: /sbin/iptables -I INPUT 1 -p tcp --dport 3306 -j ACCEPT -m comment --comment "MYSQL"
+
+- name: save iptables
+  command: service iptables save
+#
+# Setup database
+#
+- name: Create greetdb
+  mysql_db:
+   name: greetdb
+   state: present
+   login_user: "{{mysql_root_user}}"
+   login_password: "{{ mysql_root_password }}"
+
+#
+# Setup users
+#
+
+- name: ensure anonymous users are not in the database
+  mysql_user:
+      name: ''
+      login_user: "{{mysql_root_user}}"
+      login_password: "{{ mysql_root_password }}"
+      state: absent
+
+- name: Create and grant privileges to app user on localhost
+  sudo: yes
+  mysql_user:
+    name: "{{ app_db_username }}"
+    password: "{{ app_db_password }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    host: "localhost"
+    priv: "greetdb.*:ALL,GRANT"
+
+- name: Create and grant privileges to app user from app server
+  sudo: yes
+  mysql_user:
+    name: "{{ app_db_username }}"
+    password: "{{ app_db_password }}"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    host: "{{ item }}"
+    priv: "greetdb.*:ALL,GRANT"
+  with_items: "{{ groups['web'] }}"
+
+- name: Create and grant privileges to root user from app server
+  sudo: yes
+  mysql_user:
+    name: "root"
+    password: "password"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    host: "{{ item }}"
+    priv: "*.*:ALL,GRANT"
+  with_items: "{{ groups['web'] }}"

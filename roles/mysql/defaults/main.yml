@@ -1,0 +1,16 @@
+app_db_username: app-user
+app_db_password: password
+mysql_root_user: root
+mysql_root_password: password
+mysql_replication_username: replication-user
+mysql_replication_password: password
+master_server_id: 1
+slave_server_id: 2
+max_binlog_size: 100M
+expire_logs_days: 90
+log_bin_file_name: mysql-bin
+log_bin_index_file_name: mysql-bin.index
+innodb_flush_log_at_trx_commit: 1
+sync_binlog: 1
+relay_log_file_name: relay-bin
+relay_log_index_file_name: relay-bin.index
