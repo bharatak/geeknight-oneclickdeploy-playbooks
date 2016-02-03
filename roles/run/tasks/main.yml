@@ -1,0 +1,4 @@
+- name: Run the executable jar
+  sudo: yes
+  command: 'nohup java -jar /opt/oneclickdeploy-0.0.1-SNAPSHOT.jar &'
+  tags: start_app

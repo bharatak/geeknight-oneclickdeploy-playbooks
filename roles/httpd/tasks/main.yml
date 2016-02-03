@@ -19,3 +19,12 @@
 - name: Start httpd
   service: name=httpd state=started enabled=yes
 
+- name: remove /var/www/app
+  file: path=/var/www/app state=absent
+
+- name: copy the apache artifact
+  sudo: true
+  unarchive:
+      src=app.zip
+      dest=/var/www
+
